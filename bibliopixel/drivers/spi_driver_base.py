@@ -30,18 +30,20 @@ class SpiBaseInterface(object):
 
 
 class SpiFileInterface(SpiBaseInterface):
+    """ using os open/write to send data"""
+
     def __init__(self, **kwargs):
         super(SpiFileInterface, self).__init__(**kwargs)
-        # File based SPI requires a bytearray so we have to overwrite _buf
-        self._buf = bytearray(self._buf)
         self.spi = open(self._dev, "wb")
 
     def send_packet(self, data):
-        self.spi.write(data)
+        self.spi.write(bytearray(data))
         self.spi.flush()
 
 
 class SpiPyDevInterface(SpiBaseInterface):
+    """ using py-spidev to send data"""
+
     def __init__(self, **kwargs):
         super(SpiPyDevInterface, self).__init__(**kwargs)
 
@@ -77,6 +79,10 @@ class SpiPyDevInterface(SpiBaseInterface):
 
 
 class SpiPiGpioInterface(SpiBaseInterface):
+    """ using pi gpio to send data
+        us this for the secound spi port on a raspberry pi
+        with dev=/dev/devspi1.0 """
+
     def __init__(self, **kwargs):
         super(SpiPiGpioInterface, self).__init__(**kwargs)
 
@@ -96,6 +102,7 @@ class SpiPiGpioInterface(SpiBaseInterface):
 
 class SpiDummyInterface(SpiBaseInterface):
     """ interface for testing proposal"""
+
     def __init__(self, **kwargs):
         super(SpiDummyInterface, self).__init__(**kwargs)
         pass
