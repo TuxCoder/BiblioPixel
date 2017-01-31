@@ -94,11 +94,18 @@ class SpiPiGpioInterface(SpiBaseInterface):
         self.pi.spi_write(self.spi, data)
 
 
+class SpiDummyInterface(SpiBaseInterface):
+    """ interface for testing proposal"""
+    def __init__(self, **kwargs):
+        super(SpiDummyInterface, self).__init__(**kwargs)
+        pass
+
+
 class DriverSPIBase(DriverBase):
     """Base driver for controling SPI devices on systems like the Raspberry Pi and BeagleBone"""
 
     def __init__(self, num, c_order=ChannelOrder.GRB, interface=SpiPyDevInterface,
-                 dev="/dev/spidev0.0", SPISpeed=2, open=open, gamma=None):
+                 dev="/dev/spidev0.0", SPISpeed=2, gamma=None):
         super(DriverSPIBase, self).__init__(num, c_order=c_order, gamma=gamma)
 
         self.interface = interface(dev, SPISpeed)
