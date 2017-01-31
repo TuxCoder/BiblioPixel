@@ -108,7 +108,7 @@ class DriverSPIBase(DriverBase):
                  dev="/dev/spidev0.0", SPISpeed=2, gamma=None):
         super(DriverSPIBase, self).__init__(num, c_order=c_order, gamma=gamma)
 
-        self.interface = interface(dev, SPISpeed)
+        self.interface = interface(dev=dev, SPISpeed=SPISpeed)
 
     def _send_packet(self):
         self.interface.send_packet(self._packet)
