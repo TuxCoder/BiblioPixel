@@ -33,7 +33,7 @@ class SpiFileInterface(SpiBaseInterface):
     """ using os open/write to send data"""
 
     def __init__(self, **kwargs):
-        super(SpiFileInterface, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self._spi = open(self._dev, "wb")
 
     def send_packet(self, data):
@@ -45,7 +45,7 @@ class SpiPyDevInterface(SpiBaseInterface):
     """ using py-spidev to send data"""
 
     def __init__(self, **kwargs):
-        super(SpiPyDevInterface, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         if not os.path.exists(self._dev):
             error(BAD_FORMAT_ERROR)
@@ -76,7 +76,7 @@ class SpiDummyInterface(SpiBaseInterface):
     """ interface for testing proposal"""
 
     def __init__(self, **kwargs):
-        super(SpiDummyInterface, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         pass
 
     def send_packet(self, data):
@@ -89,7 +89,7 @@ class DriverSPIBase(DriverBase):
 
     def __init__(self, num, c_order=ChannelOrder.GRB, interface=SpiPyDevInterface,
                  dev="/dev/spidev0.0", SPISpeed=2, gamma=None):
-        super(DriverSPIBase, self).__init__(num, c_order=c_order, gamma=gamma)
+        super().__init__(num, c_order=c_order, gamma=gamma)
 
         self._interface = interface(dev=dev, SPISpeed=SPISpeed)
 
@@ -129,4 +129,4 @@ Unable to import spidev. Please install:
 
 def error(text):
     log.error(text)
-    raise IOError(text)
+    raise Exception(text)
