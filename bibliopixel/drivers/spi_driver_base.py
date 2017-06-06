@@ -23,7 +23,7 @@ class SpiBaseInterface(object):
         self._device_cs = b
 
     def send_packet(self, data):
-        pass
+        raise NotImplementedError
 
     def compute_packet(self, data):
         return data
@@ -34,11 +34,11 @@ class SpiFileInterface(SpiBaseInterface):
 
     def __init__(self, **kwargs):
         super(SpiFileInterface, self).__init__(**kwargs)
-        self.spi = open(self._dev, "wb")
+        self._spi = open(self._dev, "wb")
 
     def send_packet(self, data):
-        self.spi.write(bytearray(data))
-        self.spi.flush()
+        self._spi.write(bytearray(data))
+        self._spi.flush()
 
 
 class SpiPyDevInterface(SpiBaseInterface):
@@ -61,15 +61,15 @@ class SpiPyDevInterface(SpiBaseInterface):
         # import spidev and cache error
         try:
             import spidev
-            self.spi = spidev.SpiDev()
-        except:
+            self._spi = spidev.SpiDev()
+        except ImportError:
             error(CANT_IMPORT_SPIDEV_ERROR)
-        self.spi.open(self._device_id, self._device_cs)
-        self.spi.max_speed_hz = int(self._spi_speed * 1000000.0)
-        log.info('py-spidev speed @ %.1f MHz', (float(self.spi.max_speed_hz) / 1000000.0))
+        self._spi.open(self._device_id, self._device_cs)
+        self._spi.max_speed_hz = int(self._spi_speed * 1000000.0)
+        log.info('py-spidev speed @ %.1f MHz', (float(self._spi.max_speed_hz) / 1000000.0))
 
-    def _send_packet(self, data):
-        self.spi.xfer2(data)
+    def send_packet(self, data):
+        self._spi.xfer2(data)
 
 
 class SpiDummyInterface(SpiBaseInterface):
@@ -77,6 +77,10 @@ class SpiDummyInterface(SpiBaseInterface):
 
     def __init__(self, **kwargs):
         super(SpiDummyInterface, self).__init__(**kwargs)
+        pass
+
+    def send_packet(self, data):
+        """ do nothing """
         pass
 
 
@@ -87,14 +91,14 @@ class DriverSPIBase(DriverBase):
                  dev="/dev/spidev0.0", SPISpeed=2, gamma=None):
         super(DriverSPIBase, self).__init__(num, c_order=c_order, gamma=gamma)
 
-        self.interface = interface(dev=dev, SPISpeed=SPISpeed)
+        self._interface = interface(dev=dev, SPISpeed=SPISpeed)
 
     def _send_packet(self):
-        self.interface.send_packet(self._packet)
+        self._interface.send_packet(self._packet)
 
     def _compute_packet(self):
         self._render()
-        self._packet = self.interface.compute_packet(self._buf)
+        self._packet = self._interface.compute_packet(self._buf)
 
 
 PERMISSION_ERROR = """Cannot access SPI device.
