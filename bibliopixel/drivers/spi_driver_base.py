@@ -1,6 +1,8 @@
+import fcntl
 import os
-from . channel_order import ChannelOrder
-from . driver_base import DriverBase
+import struct
+from .channel_order import ChannelOrder
+from .driver_base import DriverBase
 from .. import log
 
 
@@ -29,12 +31,40 @@ class SpiBaseInterface(object):
         return data
 
 
+# partial source @see https://armbedded.taskit.de/node/318
+# hex numbers from good old strace(1)
+SPI_IOC_WR_MODE = 0x40016b01
+SPI_IOC_RD_MODE = 0x80016b01
+SPI_IOC_WR_BITS_PER_WORD = 0x40016b03
+SPI_IOC_RD_BITS_PER_WORD = 0x80016b03
+SPI_IOC_WR_MAX_SPEED_HZ = 0x40046b04
+SPI_IOC_RD_MAX_SPEED_HZ = 0x80046b04
+
+
 class SpiFileInterface(SpiBaseInterface):
     """ using os open/write to send data"""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        if not os.path.exists(self._dev):
+            error(CANT_FIND_ERROR)
+
+
+        self._fnctl = fcntl
         self._spi = open(self._dev, "wb")
+
+        speed = self._set_speed(self._spi_speed)
+
+        log.info('file io spi speed @ %.1f MHz', speed / 1e6)
+
+    def _set_speed(self, speed):
+
+        speed_b = struct.pack(">I", int(speed * 1e9))  # unint32
+        self._fnctl.ioctl(self._spi, SPI_IOC_WR_MAX_SPEED_HZ, speed_b)
+
+        self._fnctl.ioctl(self._spi, SPI_IOC_RD_MAX_SPEED_HZ, speed_b)
+        speed = struct.unpack(">I", speed_b)[0] / 1000
+        return speed
 
     def send_packet(self, data):
         self._spi.write(bytearray(data))
@@ -48,7 +78,7 @@ class SpiPyDevInterface(SpiBaseInterface):
         super().__init__(**kwargs)
 
         if not os.path.exists(self._dev):
-            error(BAD_FORMAT_ERROR)
+            error(CANT_FIND_ERROR)
         # permissions check
         try:
             fd = open(self._dev, 'r')
@@ -65,8 +95,8 @@ class SpiPyDevInterface(SpiBaseInterface):
         except ImportError:
             error(CANT_IMPORT_SPIDEV_ERROR)
         self._spi.open(self._device_id, self._device_cs)
-        self._spi.max_speed_hz = int(self._spi_speed * 1000000.0)
-        log.info('py-spidev speed @ %.1f MHz', (float(self._spi.max_speed_hz) / 1000000.0))
+        self._spi.max_speed_hz = int(self._spi_speed * 1e6)
+        log.info('py-spidev speed @ %.1f MHz', self._spi.max_speed_hz / 1e6)
 
     def send_packet(self, data):
         self._spi.xfer2(data)
@@ -90,6 +120,8 @@ class DriverSPIBase(DriverBase):
     def __init__(self, num, c_order=ChannelOrder.GRB, interface=SpiPyDevInterface,
                  dev="/dev/spidev0.0", SPISpeed=2, gamma=None):
         super().__init__(num, c_order=c_order, gamma=gamma)
+
+        self._buf = list()
 
         self._interface = interface(dev=dev, SPISpeed=SPISpeed)
 
