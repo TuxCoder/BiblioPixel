@@ -1,4 +1,5 @@
 import fcntl
+import math
 import os
 import struct
 from . channel_order import ChannelOrder
@@ -21,6 +22,7 @@ class SpiBaseInterface(object):
 
 
 # partial source @see https://armbedded.taskit.de/node/318
+# @see <linux/spi/spidev.h>
 # hex numbers from good old strace(1)
 SPI_IOC_WR_MODE = 0x40016b01
 SPI_IOC_RD_MODE = 0x80016b01
@@ -28,6 +30,7 @@ SPI_IOC_WR_BITS_PER_WORD = 0x40016b03
 SPI_IOC_RD_BITS_PER_WORD = 0x80016b03
 SPI_IOC_WR_MAX_SPEED_HZ = 0x40046b04
 SPI_IOC_RD_MAX_SPEED_HZ = 0x80046b04
+
 
 class SpiFileInterface(SpiBaseInterface):
     """ using os open/write to send data"""
@@ -37,16 +40,15 @@ class SpiFileInterface(SpiBaseInterface):
         if not os.path.exists(self._dev):
             error(CANT_FIND_ERROR)
 
-
         self._fnctl = fcntl
         self._spi = open(self._dev, "wb")
 
         speed = self._set_speed(self._spi_speed)
 
-        log.info('file io spi speed @ %.1f MHz', speed / 1e6)
+        bits = self._set_bits_per_word(8)
+        log.info('file io spi speed @ %.1f MHz, %d bits per word', speed / 1e6, bits)
 
     def _set_speed(self, speed):
-
         speed_b = struct.pack(">I", int(speed * 1e9))  # unint32
         self._fnctl.ioctl(self._spi, SPI_IOC_WR_MAX_SPEED_HZ, speed_b)
 
@@ -54,9 +56,22 @@ class SpiFileInterface(SpiBaseInterface):
         speed = struct.unpack(">I", speed_b)[0] / 1000
         return speed
 
+    def _set_bits_per_word(self, bits):
+        bits_b = struct.pack("B", bits)  # uint8
+        self._fnctl.ioctl(self._spi, SPI_IOC_WR_BITS_PER_WORD, bits_b)
+
+        self._fnctl.ioctl(self._spi, SPI_IOC_RD_MAX_SPEED_HZ, bits_b)
+        bits = int.from_bytes(bits_b, byteorder='big')
+        return bits
+
     def send_packet(self, data):
-        self._spi.write(data)
-        self._spi.flush()
+        self._set_speed(self._spi_speed)
+        package_size = 4032  # bit smaller than 4096 because of headers
+        for i in range(int(math.ceil(len(data) / package_size))):
+            start = i * package_size
+            end = (i + 1) * package_size
+            self._spi.write(data[start:end])
+            self._spi.flush()
 
 
 class SpiPyDevInterface(SpiBaseInterface):
