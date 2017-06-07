@@ -1,8 +1,8 @@
 import fcntl
 import os
 import struct
-from .channel_order import ChannelOrder
-from .driver_base import DriverBase
+from . channel_order import ChannelOrder
+from . driver_base import DriverBase
 from .. import log
 
 
@@ -12,17 +12,6 @@ class SpiBaseInterface(object):
     def __init__(self, dev, SPISpeed):
         self._dev = dev
         self._spi_speed = SPISpeed
-        a, b = -1, -1
-        d = self._dev.replace("/dev/spidev", "")
-        s = d.split('.')
-        if len(s) == 2:
-            a = int(s[0])
-            b = int(s[1])
-        if a < 0 or b < 0:
-            error(BAD_FORMAT_ERROR)
-
-        self._device_id = a
-        self._device_cs = b
 
     def send_packet(self, data):
         raise NotImplementedError
@@ -39,7 +28,6 @@ SPI_IOC_WR_BITS_PER_WORD = 0x40016b03
 SPI_IOC_RD_BITS_PER_WORD = 0x80016b03
 SPI_IOC_WR_MAX_SPEED_HZ = 0x40046b04
 SPI_IOC_RD_MAX_SPEED_HZ = 0x80046b04
-
 
 class SpiFileInterface(SpiBaseInterface):
     """ using os open/write to send data"""
@@ -67,7 +55,7 @@ class SpiFileInterface(SpiBaseInterface):
         return speed
 
     def send_packet(self, data):
-        self._spi.write(bytearray(data))
+        self._spi.write(data)
         self._spi.flush()
 
 
@@ -76,6 +64,18 @@ class SpiPyDevInterface(SpiBaseInterface):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        a, b = -1, -1
+        d = self._dev.replace("/dev/spidev", "")
+        s = d.split('.')
+        if len(s) == 2:
+            a = int(s[0])
+            b = int(s[1])
+        if a < 0 or b < 0:
+            error(BAD_FORMAT_ERROR)
+
+        self._device_id = a
+        self._device_cs = b
 
         if not os.path.exists(self._dev):
             error(CANT_FIND_ERROR)
@@ -99,7 +99,7 @@ class SpiPyDevInterface(SpiBaseInterface):
         log.info('py-spidev speed @ %.1f MHz', self._spi.max_speed_hz / 1e6)
 
     def send_packet(self, data):
-        self._spi.xfer2(data)
+        self._spi.xfer2(list(data))
 
 
 class SpiDummyInterface(SpiBaseInterface):
@@ -120,8 +120,6 @@ class DriverSPIBase(DriverBase):
     def __init__(self, num, c_order=ChannelOrder.GRB, interface=SpiPyDevInterface,
                  dev="/dev/spidev0.0", SPISpeed=2, gamma=None):
         super().__init__(num, c_order=c_order, gamma=gamma)
-
-        self._buf = list()
 
         self._interface = interface(dev=dev, SPISpeed=SPISpeed)
 

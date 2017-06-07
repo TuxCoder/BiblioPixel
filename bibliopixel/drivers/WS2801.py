@@ -1,6 +1,5 @@
 from . channel_order import ChannelOrder
 from . spi_driver_base import DriverSPIBase
-import os
 from .. import gamma
 
 
