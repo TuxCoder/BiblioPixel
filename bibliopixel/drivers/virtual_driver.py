@@ -1,9 +1,8 @@
 from .driver_base import DriverBase
-import typing
 
 
 class Virtual(DriverBase):
-    def __init__(self, drivers: typing.List[DriverBase], pos_leds: typing.List[int], **kwargs):
+    def __init__(self, drivers, pos_leds, **kwargs):
         super().__init__(num=len(pos_leds), **kwargs)
 
         self._drivers = drivers
