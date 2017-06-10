@@ -10,7 +10,10 @@ class WS281XSPI(DriverSPIBase):
     """
 
     def __init__(self, num, **kwargs):
-        super().__init__(num, c_order=ChannelOrder.GRB, spi_speed=3.234213120,
+        # WS281x need a base clock of ~1MHz with the encoding we need 3 times this clock
+        # After testing 3.2 looks like a good value
+        spi_speed = 3.2
+        super().__init__(num, c_order=ChannelOrder.GRB, spi_speed=spi_speed,
                          gamma=_gamma.WS2812, **kwargs)
 
     # WS2812 requires gamma correction so we run it through gamma as the
