@@ -43,7 +43,7 @@ class SpiFileInterface(SpiBaseInterface):
         self._spi = open(self._dev, 'wb')
 
         self.speed = self._spi_speed
-        self.set_bits_per_word = 8
+        self.bits_per_word = 8
         log.info('file io spi speed @ %.1f MHz, %d bits per word', self.speed / 1e6, self.bits_per_word)
 
     def _ioctl(self, command, buffer):
