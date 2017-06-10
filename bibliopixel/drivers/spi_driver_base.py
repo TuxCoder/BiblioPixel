@@ -10,9 +10,9 @@ from .. import log
 class SpiBaseInterface(object):
     """ abstract class for different spi backends"""
 
-    def __init__(self, dev, SPISpeed):
+    def __init__(self, dev, spi_speed):
         self._dev = dev
-        self._spi_speed = SPISpeed
+        self._spi_speed = spi_speed
 
     def send_packet(self, data):
         raise NotImplementedError
@@ -24,12 +24,11 @@ class SpiBaseInterface(object):
 # partial source @see https://armbedded.taskit.de/node/318
 # @see <linux/spi/spidev.h>
 # hex numbers from good old strace(1)
-SPI_IOC_WR_MODE = 0x40016b01
-SPI_IOC_RD_MODE = 0x80016b01
-SPI_IOC_WR_BITS_PER_WORD = 0x40016b03
-SPI_IOC_RD_BITS_PER_WORD = 0x80016b03
-SPI_IOC_WR_MAX_SPEED_HZ = 0x40046b04
-SPI_IOC_RD_MAX_SPEED_HZ = 0x80046b04
+IOC_READ = 0x40000000
+IOC_WRITE = 0x40000000
+
+IOC_BITS_PER_WORD = 0x00016b03
+IOC_MAX_SPEED_HZ = 0x00046b04
 
 
 class SpiFileInterface(SpiBaseInterface):
@@ -43,32 +42,36 @@ class SpiFileInterface(SpiBaseInterface):
         self._fnctl = fcntl
         self._spi = open(self._dev, 'wb')
 
-        self.set_speed(self._spi_speed)
+        self.speed = self._spi_speed
+        self.set_bits_per_word = 8
+        log.info('file io spi speed @ %.1f MHz, %d bits per word', self.speed / 1e6, self.bits_per_word)
 
-        bits = self._set_bits_per_word(8)
-        log.info('file io spi speed @ %.1f MHz, %d bits per word', self._speed / 1e6, bits)
+    def _ioctl(self, command, buffer):
+        self._fnctl.ioctl(self._spi, IOC_WRITE + command, buffer)
+        self._fnctl.ioctl(self._spi, IOC_READ + command, buffer)
 
-    def set_speed(self, speed):
-        speed_b = struct.pack('>I', int(speed * 1e9))  # unint32
-        self._fnctl.ioctl(self._spi, SPI_IOC_WR_MAX_SPEED_HZ, speed_b)
+    def _set_speed(self, speed):
+        buffer = struct.pack(">I", int(speed * 1e9))  # unint32
+        self._ioctl(IOC_MAX_SPEED_HZ, buffer)
+        self._speed = struct.unpack(">I", buffer)[0] / 1000
 
-        # read what the kernel has
-        self._fnctl.ioctl(self._spi, SPI_IOC_RD_MAX_SPEED_HZ, speed_b)
-        self._speed = struct.unpack(">I", speed_b)[0] / 1000
-
-    def get_speed(self):
+    def _get_speed(self):
         return self._speed
 
-    def _set_bits_per_word(self, bits):
-        bits_b = struct.pack('B', bits)  # uint8
-        self._fnctl.ioctl(self._spi, SPI_IOC_WR_BITS_PER_WORD, bits_b)
+    speed = property(_get_speed, _set_speed)
 
-        self._fnctl.ioctl(self._spi, SPI_IOC_RD_MAX_SPEED_HZ, bits_b)
-        bits = int.from_bytes(bits_b, byteorder='big')
-        return bits
+    def _set_bits_per_word(self, bits):
+        buffer = struct.pack("B", bits)  # uint8
+        self._ioctl(IOC_BITS_PER_WORD, buffer)
+        self._bits_per_word = int.from_bytes(buffer, byteorder='big')
+
+    def _get_bits_per_word(self):
+        return self._bits_per_word
+
+    bits_per_word = property(_get_bits_per_word, _set_bits_per_word)
 
     def send_packet(self, data):
-        self.set_speed(self._spi_speed)
+        self._set_speed(self._spi_speed)  # set speed again if other program changed it
         package_size = 4032  # bit smaller than 4096 because of headers
         for i in range(int(math.ceil(len(data) / package_size))):
             start = i * package_size
@@ -83,17 +86,12 @@ class SpiPyDevInterface(SpiBaseInterface):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        a, b = -1, -1
         d = self._dev.replace('/dev/spidev', '')
-        s = d.split('.')
-        if len(s) == 2:
-            a = int(s[0])
-            b = int(s[1])
-        if a < 0 or b < 0:
+        ids = (int(i) for i in d.split('.'))
+        try:
+            self._device_id, self._device_cs = ids
+        except:
             error(BAD_FORMAT_ERROR)
-
-        self._device_id = a
-        self._device_cs = b
 
         if not os.path.exists(self._dev):
             error(CANT_FIND_ERROR)
@@ -132,10 +130,10 @@ class DriverSPIBase(DriverBase):
     """Base driver for controling SPI devices on systems like the Raspberry Pi and BeagleBone"""
 
     def __init__(self, num, c_order=ChannelOrder.GRB, interface=SpiFileInterface,
-                 dev='/dev/spidev0.0', SPISpeed=2, gamma=None):
+                 dev='/dev/spidev0.0', spi_speed=2, gamma=None):
         super().__init__(num, c_order=c_order, gamma=gamma)
 
-        self._interface = interface(dev=dev, SPISpeed=SPISpeed)
+        self._interface = interface(dev=dev, spi_speed=spi_speed)
 
     def _send_packet(self):
         self._interface.send_packet(self._packet)

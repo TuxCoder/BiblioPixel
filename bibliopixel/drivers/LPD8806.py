@@ -9,8 +9,8 @@ class LPD8806(DriverSPIBase):
 
     def __init__(self, num,
                  c_order=ChannelOrder.RGB,
-                 SPISpeed=2, gamma=gamma.LPD8806, **kwargs):
-        super().__init__(num, c_order=c_order, SPISpeed=SPISpeed, gamma=gamma, **kwargs)
+                 spi_speed=2, gamma=gamma.LPD8806, **kwargs):
+        super().__init__(num, c_order=c_order, spi_speed=spi_speed, gamma=gamma, **kwargs)
 
         # LPD8806 requires latch bytes at the end
         self._latchBytes = (self.numLEDs + 31) // 32
