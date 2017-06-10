@@ -173,4 +173,4 @@ Unable to import spidev. Please install:
 
 def error(text):
     log.error(text)
-    raise Exception(text)
+    raise IOError(text)
