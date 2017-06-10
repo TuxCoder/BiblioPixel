@@ -43,18 +43,21 @@ class SpiFileInterface(SpiBaseInterface):
         self._fnctl = fcntl
         self._spi = open(self._dev, 'wb')
 
-        speed = self._set_speed(self._spi_speed)
+        self.set_speed(self._spi_speed)
 
         bits = self._set_bits_per_word(8)
-        log.info('file io spi speed @ %.1f MHz, %d bits per word', speed / 1e6, bits)
+        log.info('file io spi speed @ %.1f MHz, %d bits per word', self._speed / 1e6, bits)
 
-    def _set_speed(self, speed):
+    def set_speed(self, speed):
         speed_b = struct.pack('>I', int(speed * 1e9))  # unint32
         self._fnctl.ioctl(self._spi, SPI_IOC_WR_MAX_SPEED_HZ, speed_b)
 
+        # read what the kernel has
         self._fnctl.ioctl(self._spi, SPI_IOC_RD_MAX_SPEED_HZ, speed_b)
-        speed = struct.unpack(">I", speed_b)[0] / 1000
-        return speed
+        self._speed = struct.unpack(">I", speed_b)[0] / 1000
+
+    def get_speed(self):
+        return self._speed
 
     def _set_bits_per_word(self, bits):
         bits_b = struct.pack('B', bits)  # uint8
@@ -65,7 +68,7 @@ class SpiFileInterface(SpiBaseInterface):
         return bits
 
     def send_packet(self, data):
-        self._set_speed(self._spi_speed)
+        self.set_speed(self._spi_speed)
         package_size = 4032  # bit smaller than 4096 because of headers
         for i in range(int(math.ceil(len(data) / package_size))):
             start = i * package_size
@@ -119,10 +122,6 @@ class SpiPyDevInterface(SpiBaseInterface):
 
 class SpiDummyInterface(SpiBaseInterface):
     """ interface for testing proposal"""
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        pass
 
     def send_packet(self, data):
         """ do nothing """
