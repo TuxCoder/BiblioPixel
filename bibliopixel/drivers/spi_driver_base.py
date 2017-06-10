@@ -41,7 +41,7 @@ class SpiFileInterface(SpiBaseInterface):
             error(CANT_FIND_ERROR)
 
         self._fnctl = fcntl
-        self._spi = open(self._dev, "wb")
+        self._spi = open(self._dev, 'wb')
 
         speed = self._set_speed(self._spi_speed)
 
@@ -49,7 +49,7 @@ class SpiFileInterface(SpiBaseInterface):
         log.info('file io spi speed @ %.1f MHz, %d bits per word', speed / 1e6, bits)
 
     def _set_speed(self, speed):
-        speed_b = struct.pack(">I", int(speed * 1e9))  # unint32
+        speed_b = struct.pack('>I', int(speed * 1e9))  # unint32
         self._fnctl.ioctl(self._spi, SPI_IOC_WR_MAX_SPEED_HZ, speed_b)
 
         self._fnctl.ioctl(self._spi, SPI_IOC_RD_MAX_SPEED_HZ, speed_b)
@@ -57,7 +57,7 @@ class SpiFileInterface(SpiBaseInterface):
         return speed
 
     def _set_bits_per_word(self, bits):
-        bits_b = struct.pack("B", bits)  # uint8
+        bits_b = struct.pack('B', bits)  # uint8
         self._fnctl.ioctl(self._spi, SPI_IOC_WR_BITS_PER_WORD, bits_b)
 
         self._fnctl.ioctl(self._spi, SPI_IOC_RD_MAX_SPEED_HZ, bits_b)
@@ -81,7 +81,7 @@ class SpiPyDevInterface(SpiBaseInterface):
         super().__init__(**kwargs)
 
         a, b = -1, -1
-        d = self._dev.replace("/dev/spidev", "")
+        d = self._dev.replace('/dev/spidev', '')
         s = d.split('.')
         if len(s) == 2:
             a = int(s[0])
@@ -133,7 +133,7 @@ class DriverSPIBase(DriverBase):
     """Base driver for controling SPI devices on systems like the Raspberry Pi and BeagleBone"""
 
     def __init__(self, num, c_order=ChannelOrder.GRB, interface=SpiFileInterface,
-                 dev="/dev/spidev0.0", SPISpeed=2, gamma=None):
+                 dev='/dev/spidev0.0', SPISpeed=2, gamma=None):
         super().__init__(num, c_order=c_order, gamma=gamma)
 
         self._interface = interface(dev=dev, SPISpeed=SPISpeed)
