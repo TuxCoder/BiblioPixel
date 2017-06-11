@@ -1,4 +1,3 @@
-import fcntl
 import math
 import os
 import struct
@@ -39,7 +38,11 @@ class SpiFileInterface(SpiBaseInterface):
         if not os.path.exists(self._dev):
             error(CANT_FIND_ERROR)
 
-        self._fnctl = fcntl
+        try:
+            import fcntl
+            self._fcntl = fcntl
+        except ImportError:
+            error(CANT_IMPORT_FCNTL_ERROR)
         self._spi = open(self._dev, 'wb')
 
         self.speed = self._spi_speed
@@ -47,8 +50,8 @@ class SpiFileInterface(SpiBaseInterface):
         log.info('file io spi speed @ %.1f MHz, %d bits per word', self.speed / 1e6, self.bits_per_word)
 
     def _ioctl(self, command, buffer):
-        self._fnctl.ioctl(self._spi, IOC_WRITE + command, buffer)
-        self._fnctl.ioctl(self._spi, IOC_READ + command, buffer)
+        self._fcntl.ioctl(self._spi, IOC_WRITE + command, buffer)
+        self._fcntl.ioctl(self._spi, IOC_READ + command, buffer)
 
     def _set_speed(self, speed):
         buffer = struct.pack(">I", int(speed * 1e9))  # unint32
@@ -151,7 +154,15 @@ Please see
 for details.
 """
 
-CANT_FIND_ERROR = """Cannot find SPI device.
+CANT_FIND_ERROR = """Cannot find SPI device `spidev`.
+Please see
+
+    https://github.com/maniacallabs/bibliopixel/wiki/SPI-Setup
+
+for details.
+"""
+
+CANT_IMPORT_FCNTL_ERROR = """Cannot find SPI device `fcntl`
 Please see
 
     https://github.com/maniacallabs/bibliopixel/wiki/SPI-Setup
