@@ -18,7 +18,7 @@ class AnimationThreading(object):
     def stop_thread(self, wait=False):
         if self.thread:
             self.stop_event.set()
-            if wait:
+            if wait and (threading.current_thread() != self.thread):
                 self.thread.join()
 
     def stopped(self):
